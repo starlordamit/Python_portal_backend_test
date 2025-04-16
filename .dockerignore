@@ -1,0 +1,37 @@
+# .dockerignore
+
+# Python virtual environment
+venv/
+.venv/
+env/
+*.env
+
+# Python bytecode and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Git files
+.git/
+.gitignore
+
+# IDE/Editor files
+.vscode/
+.idea/
+
+# Test outputs / logs (optional)
+*.log
+htmlcov/
+.coverage
+
+# Local development files
+.env
+
+# Docker files (don't copy themselves)
+Dockerfile
+.dockerignore 
