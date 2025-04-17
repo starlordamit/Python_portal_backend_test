@@ -69,17 +69,70 @@ async def create_billing_details(
         return {"message": "Billing details created successfully", "id": str(result.inserted_id)}
     raise HTTPException(status_code=400, detail="Failed to create billing details")
 
-@router.get("/", response_model=List[BillingDetails])
+@router.get("/", response_model=dict)
 async def get_billing_details(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1, le=100),
+    is_gst_applicable: Optional[bool] = None,
+    is_individual: Optional[bool] = None,
+    is_msme: Optional[bool] = None,
+    is_pancard_verified: Optional[bool] = None,
+    is_gst_verified: Optional[bool] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = Query(default="created_at", description="Field to sort by"),
+    sort_order: Optional[int] = Query(default=-1, description="Sort order (1 for ascending, -1 for descending)"),
     current_user: dict = Depends(get_current_user)
 ):
     # Check if user has permission to view billing details
     check_finance_permissions(current_user)
     
-    billing_details = list(billing_details_collection.find().skip(skip).limit(limit))
-    return billing_details
+    # Build filter query
+    query = {}
+    
+    # Add boolean filters if provided
+    if is_gst_applicable is not None:
+        query["is_gst_applicable"] = is_gst_applicable
+    
+    if is_individual is not None:
+        query["is_individual"] = is_individual
+        
+    if is_msme is not None:
+        query["is_msme"] = is_msme
+        
+    if is_pancard_verified is not None:
+        query["is_pancard_verified"] = is_pancard_verified
+        
+    if is_gst_verified is not None:
+        query["is_gst_verified"] = is_gst_verified
+    
+    # Add search capability
+    if search:
+        # Search in multiple fields
+        query["$or"] = [
+            {"party_legal_name": {"$regex": search, "$options": "i"}},  # Case-insensitive search
+            {"gstin": {"$regex": search, "$options": "i"}},
+            {"pan_card": {"$regex": search, "$options": "i"}}
+        ]
+    
+    # Get total count for pagination
+    total_count = billing_details_collection.count_documents(query)
+    
+    # Sort results
+    sort_options = {sort_by: sort_order}
+    
+    # Execute query with pagination and sorting
+    billing_details = list(
+        billing_details_collection.find(query).sort(list(sort_options.items())).skip(skip).limit(limit)
+    )
+    
+    # Return data with pagination information
+    return {
+        "data": billing_details,
+        "total": total_count,
+        "skip": skip,
+        "limit": limit,
+        "has_more": (skip + limit) < total_count
+    }
 
 @router.get("/{billing_id}", response_model=BillingDetails)
 async def get_billing_detail(
